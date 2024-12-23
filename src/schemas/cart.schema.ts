@@ -5,7 +5,7 @@ import { Product } from './product.schema';
 @Schema()
 export class CartItem {
   @Prop({ type: MongooseSchema.Types.ObjectId, ref: 'Product', required: true })
-  productId: Product | string;
+  productId: Product;
 
   @Prop({ required: true })
   quantity: number;

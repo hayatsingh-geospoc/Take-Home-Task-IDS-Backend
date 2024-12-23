@@ -44,7 +44,7 @@ __decorate([
 __decorate([
     (0, graphql_1.Mutation)(() => types_1.Cart),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, graphql_1.Args)('productId')),
+    __param(1, (0, graphql_1.Args)('productId', { type: () => graphql_1.ID })),
     __param(2, (0, graphql_1.Args)('quantity', { type: () => graphql_1.Int })),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String, Number]),
@@ -53,7 +53,7 @@ __decorate([
 __decorate([
     (0, graphql_1.Mutation)(() => types_1.Cart),
     __param(0, (0, current_user_decorator_1.CurrentUser)()),
-    __param(1, (0, graphql_1.Args)('productId')),
+    __param(1, (0, graphql_1.Args)('productId', { type: () => graphql_1.ID })),
     __metadata("design:type", Function),
     __metadata("design:paramtypes", [String, String]),
     __metadata("design:returntype", Promise)

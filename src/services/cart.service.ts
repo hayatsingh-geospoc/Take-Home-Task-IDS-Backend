@@ -3,6 +3,7 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { Cart } from '../schemas/cart.schema';
 import { ProductService } from './product.service';
+import { CartResponse, CartProduct } from '../interfaces/cart.interface';
 
 @Injectable()
 export class CartService {
@@ -11,7 +12,14 @@ export class CartService {
     private productService: ProductService,
   ) {}
 
-  async getCart(userId: string) {
+  private transformProduct(product: any): CartProduct {
+    return {
+      ...product.toObject(),
+      id: product._id.toString()
+    };
+  }
+
+  async getCart(userId: string): Promise<CartResponse> {
     let cart = await this.cartModel.findOne({ userId: userId.toString() })
       .populate({
         path: 'items.productId',
@@ -23,18 +31,17 @@ export class CartService {
       cart = await this.cartModel.create({ userId: userId.toString(), items: [] });
     }
 
-    // Calculate total
     let total = 0;
     for (const item of cart.items) {
-      const product = item.productId as any;
+      const product = item.productId as CartProduct;
       total += product.price * item.quantity;
     }
 
-    // Transform the populated data to match GraphQL type
     return {
-      ...cart.toObject(),
+      id: cart._id.toString(),
+      userId: cart.userId,
       items: cart.items.map(item => ({
-        product: item.productId,
+        product: this.transformProduct(item.productId),
         quantity: item.quantity
       })),
       total
@@ -53,7 +60,10 @@ export class CartService {
     if (existingItem) {
       existingItem.quantity += quantity;
     } else {
-      cart.items.push({ product, quantity });
+      cart.items.push({ 
+        product: this.transformProduct(product),
+        quantity 
+      });
     }
 
     const updatedCart = await this.cartModel.findOneAndUpdate(
@@ -70,7 +80,6 @@ export class CartService {
       model: 'Product'
     });
 
-    // Calculate total for updated cart
     let total = 0;
     for (const item of updatedCart.items) {
       const product = item.productId as any;
@@ -78,9 +87,10 @@ export class CartService {
     }
 
     return {
-      ...updatedCart.toObject(),
+      id: updatedCart._id.toString(),
+      userId: updatedCart.userId,
       items: updatedCart.items.map(item => ({
-        product: item.productId,
+        product: this.transformProduct(item.productId),
         quantity: item.quantity
       })),
       total
@@ -105,7 +115,6 @@ export class CartService {
       model: 'Product'
     });
 
-    // Calculate total for updated cart
     let total = 0;
     for (const item of updatedCart.items) {
       const product = item.productId as any;
@@ -113,9 +122,10 @@ export class CartService {
     }
 
     return {
-      ...updatedCart.toObject(),
+      id: updatedCart._id.toString(),
+      userId: updatedCart.userId,
       items: updatedCart.items.map(item => ({
-        product: item.productId,
+        product: this.transformProduct(item.productId),
         quantity: item.quantity
       })),
       total
@@ -128,6 +138,11 @@ export class CartService {
       { items: [] },
       { new: true }
     );
-    return { ...cart.toObject(), total: 0 };
+    return { 
+      id: cart._id.toString(),
+      userId: cart.userId,
+      items: [],
+      total: 0 
+    };
   }
 } 

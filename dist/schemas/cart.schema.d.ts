@@ -1,7 +1,7 @@
 import { Document, Schema as MongooseSchema } from 'mongoose';
 import { Product } from './product.schema';
 export declare class CartItem {
-    productId: Product | string;
+    productId: Product;
     quantity: number;
 }
 export declare class Cart extends Document {

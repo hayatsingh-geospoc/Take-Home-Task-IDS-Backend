@@ -4,7 +4,8 @@ import { Model } from 'mongoose';
 import { Order } from '../schemas/order.schema';
 import { CartService } from './cart.service';
 import { ProductService } from './product.service';
-import { CartItem } from '../schemas/cart.schema';
+import { OrderResponse, OrderItemWithProduct } from '../interfaces/order.interface';
+import { CartProduct } from '../interfaces/cart.interface';
 
 @Injectable()
 export class OrderService {
@@ -14,61 +15,77 @@ export class OrderService {
     private productService: ProductService,
   ) {}
 
-  async createOrder(userId: string) {
+  private transformProduct(product: any): CartProduct {
+    return {
+      ...product.toObject(),
+      id: product._id.toString()
+    };
+  }
+
+  private transformOrder(order: any): OrderResponse {
+    return {
+      id: order._id.toString(),
+      userId: order.userId,
+      items: order.items.map(item => ({
+        product: this.transformProduct(item.productId),
+        quantity: item.quantity
+      })),
+      totalPrice: order.totalPrice,
+      date: order.date
+    };
+  }
+
+  async createOrder(userId: string): Promise<OrderResponse> {
     const cart = await this.cartService.getCart(userId);
     if (!cart.items.length) {
       throw new Error('Cart is empty');
     }
 
     let totalPrice = 0;
+    const orderItems = [];
+
     for (const item of cart.items) {
-      const productId = typeof item.productId === 'string' ? item.productId : item.productId._id;
-      const product = await this.productService.findById(productId);
-      await this.productService.updateStock(productId, item.quantity);
+      const product = await this.productService.findById(item.product.id);
+      if (!product) {
+        throw new Error(`Product not found: ${item.product.id}`);
+      }
+
+      await this.productService.updateStock(item.product.id, item.quantity);
       totalPrice += product.price * item.quantity;
+
+      orderItems.push({
+        productId: item.product.id,
+        quantity: item.quantity
+      });
     }
 
     const order = await this.orderModel.create({
       userId,
-      items: cart.items.map(item => ({
-        productId: typeof item.productId === 'string' ? item.productId : item.productId._id,
-        quantity: item.quantity
-      })),
+      items: orderItems,
       totalPrice,
       date: new Date(),
     });
 
     await this.cartService.clearCart(userId);
-    return order;
+    
+    const populatedOrder = await this.orderModel.findById(order.id)
+      .populate({
+        path: 'items.productId',
+        model: 'Product'
+      });
+
+    return this.transformOrder(populatedOrder);
   }
 
-  async getOrders(userId: string) {
-    return this.orderModel.find({ userId })
+  async getOrders(userId: string): Promise<OrderResponse[]> {
+    const orders = await this.orderModel.find({ userId })
       .populate({
         path: 'items.productId',
         model: 'Product'
       })
       .sort({ date: -1 })
-      .exec()
-      .then(orders => orders.map(order => ({
-        ...order.toObject(),
-        items: order.items.map(item => ({
-          product: item.productId,
-          quantity: item.quantity
-        }))
-      })));
-  }
+      .exec();
 
-  async calculateTotalPrice(items: CartItem[]): Promise<number> {
-    let totalPrice = 0;
-    for (const item of items) {
-      const productId = typeof item.productId === 'string' ? item.productId : item.productId._id;
-      const product = await this.productService.findById(productId);
-      if (!product) {
-        throw new Error(`Product not found: ${productId}`);
-      }
-      totalPrice += product.price * item.quantity;
-    }
-    return totalPrice;
+    return orders.map(order => this.transformOrder(order));
   }
 } 

@@ -25,54 +25,63 @@ let OrderService = class OrderService {
         this.cartService = cartService;
         this.productService = productService;
     }
+    transformProduct(product) {
+        return Object.assign(Object.assign({}, product.toObject()), { id: product._id.toString() });
+    }
+    transformOrder(order) {
+        return {
+            id: order._id.toString(),
+            userId: order.userId,
+            items: order.items.map(item => ({
+                product: this.transformProduct(item.productId),
+                quantity: item.quantity
+            })),
+            totalPrice: order.totalPrice,
+            date: order.date
+        };
+    }
     async createOrder(userId) {
         const cart = await this.cartService.getCart(userId);
         if (!cart.items.length) {
             throw new Error('Cart is empty');
         }
         let totalPrice = 0;
+        const orderItems = [];
         for (const item of cart.items) {
-            const productId = typeof item.productId === 'string' ? item.productId : item.productId._id;
-            const product = await this.productService.findById(productId);
-            await this.productService.updateStock(productId, item.quantity);
+            const product = await this.productService.findById(item.product.id);
+            if (!product) {
+                throw new Error(`Product not found: ${item.product.id}`);
+            }
+            await this.productService.updateStock(item.product.id, item.quantity);
             totalPrice += product.price * item.quantity;
+            orderItems.push({
+                productId: item.product.id,
+                quantity: item.quantity
+            });
         }
         const order = await this.orderModel.create({
             userId,
-            items: cart.items.map(item => ({
-                productId: typeof item.productId === 'string' ? item.productId : item.productId._id,
-                quantity: item.quantity
-            })),
+            items: orderItems,
             totalPrice,
             date: new Date(),
         });
         await this.cartService.clearCart(userId);
-        return order;
+        const populatedOrder = await this.orderModel.findById(order.id)
+            .populate({
+            path: 'items.productId',
+            model: 'Product'
+        });
+        return this.transformOrder(populatedOrder);
     }
     async getOrders(userId) {
-        return this.orderModel.find({ userId })
+        const orders = await this.orderModel.find({ userId })
             .populate({
             path: 'items.productId',
             model: 'Product'
         })
             .sort({ date: -1 })
-            .exec()
-            .then(orders => orders.map(order => (Object.assign(Object.assign({}, order.toObject()), { items: order.items.map(item => ({
-                product: item.productId,
-                quantity: item.quantity
-            })) }))));
-    }
-    async calculateTotalPrice(items) {
-        let totalPrice = 0;
-        for (const item of items) {
-            const productId = typeof item.productId === 'string' ? item.productId : item.productId._id;
-            const product = await this.productService.findById(productId);
-            if (!product) {
-                throw new Error(`Product not found: ${productId}`);
-            }
-            totalPrice += product.price * item.quantity;
-        }
-        return totalPrice;
+            .exec();
+        return orders.map(order => this.transformOrder(order));
     }
 };
 exports.OrderService = OrderService;

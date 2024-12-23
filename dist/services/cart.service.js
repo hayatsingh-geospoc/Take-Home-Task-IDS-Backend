@@ -23,6 +23,9 @@ let CartService = class CartService {
         this.cartModel = cartModel;
         this.productService = productService;
     }
+    transformProduct(product) {
+        return Object.assign(Object.assign({}, product.toObject()), { id: product._id.toString() });
+    }
     async getCart(userId) {
         let cart = await this.cartModel.findOne({ userId: userId.toString() })
             .populate({
@@ -38,10 +41,15 @@ let CartService = class CartService {
             const product = item.productId;
             total += product.price * item.quantity;
         }
-        return Object.assign(Object.assign({}, cart.toObject()), { items: cart.items.map(item => ({
-                product: item.productId,
+        return {
+            id: cart._id.toString(),
+            userId: cart.userId,
+            items: cart.items.map(item => ({
+                product: this.transformProduct(item.productId),
                 quantity: item.quantity
-            })), total });
+            })),
+            total
+        };
     }
     async addToCart(userId, productId, quantity) {
         const cart = await this.getCart(userId.toString());
@@ -54,7 +62,10 @@ let CartService = class CartService {
             existingItem.quantity += quantity;
         }
         else {
-            cart.items.push({ product, quantity });
+            cart.items.push({
+                product: this.transformProduct(product),
+                quantity
+            });
         }
         const updatedCart = await this.cartModel.findOneAndUpdate({ userId: userId.toString() }, {
             items: cart.items.map(item => ({
@@ -70,10 +81,15 @@ let CartService = class CartService {
             const product = item.productId;
             total += product.price * item.quantity;
         }
-        return Object.assign(Object.assign({}, updatedCart.toObject()), { items: updatedCart.items.map(item => ({
-                product: item.productId,
+        return {
+            id: updatedCart._id.toString(),
+            userId: updatedCart.userId,
+            items: updatedCart.items.map(item => ({
+                product: this.transformProduct(item.productId),
                 quantity: item.quantity
-            })), total });
+            })),
+            total
+        };
     }
     async removeFromCart(userId, productId) {
         const cart = await this.getCart(userId.toString());
@@ -92,14 +108,24 @@ let CartService = class CartService {
             const product = item.productId;
             total += product.price * item.quantity;
         }
-        return Object.assign(Object.assign({}, updatedCart.toObject()), { items: updatedCart.items.map(item => ({
-                product: item.productId,
+        return {
+            id: updatedCart._id.toString(),
+            userId: updatedCart.userId,
+            items: updatedCart.items.map(item => ({
+                product: this.transformProduct(item.productId),
                 quantity: item.quantity
-            })), total });
+            })),
+            total
+        };
     }
     async clearCart(userId) {
         const cart = await this.cartModel.findOneAndUpdate({ userId: userId.toString() }, { items: [] }, { new: true });
-        return Object.assign(Object.assign({}, cart.toObject()), { total: 0 });
+        return {
+            id: cart._id.toString(),
+            userId: cart.userId,
+            items: [],
+            total: 0
+        };
     }
 };
 exports.CartService = CartService;

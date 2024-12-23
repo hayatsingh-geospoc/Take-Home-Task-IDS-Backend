@@ -12,12 +12,13 @@ Object.defineProperty(exports, "__esModule", { value: true });
 exports.CartSchema = exports.Cart = exports.CartItem = void 0;
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
+const product_schema_1 = require("./product.schema");
 let CartItem = class CartItem {
 };
 exports.CartItem = CartItem;
 __decorate([
     (0, mongoose_1.Prop)({ type: mongoose_2.Schema.Types.ObjectId, ref: 'Product', required: true }),
-    __metadata("design:type", Object)
+    __metadata("design:type", product_schema_1.Product)
 ], CartItem.prototype, "productId", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ required: true }),
